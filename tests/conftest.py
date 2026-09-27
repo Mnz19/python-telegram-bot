@@ -19,6 +19,7 @@ def alert_with_target_price(telegram_user):
         destination="LIS",
         period_type=Alert.PeriodType.FIXED_DATE,
         date_from=date(2026, 3, 1),
+        trip_type=Alert.TripType.ONE_WAY,
         target_price=Decimal("1500.00"),
     )
 
@@ -31,5 +32,32 @@ def alert_with_drop_percentage(telegram_user):
         destination="LIS",
         period_type=Alert.PeriodType.FIXED_DATE,
         date_from=date(2026, 3, 1),
+        trip_type=Alert.TripType.ONE_WAY,
         drop_percentage=Decimal("20.00"),
+    )
+
+
+@pytest.fixture
+def alert_without_threshold(telegram_user):
+    """Relies solely on automatic new-low / mistake-fare detection."""
+    return Alert.objects.create(
+        user=telegram_user,
+        origin="BEL",
+        destination="LIS",
+        period_type=Alert.PeriodType.FIXED_DATE,
+        date_from=date(2026, 3, 1),
+        trip_type=Alert.TripType.ONE_WAY,
+    )
+
+
+@pytest.fixture
+def multi_destination_alert(telegram_user):
+    return Alert.objects.create(
+        user=telegram_user,
+        origin="BEL",
+        destination="",
+        period_type=Alert.PeriodType.FIXED_DATE,
+        date_from=date(2026, 3, 1),
+        trip_type=Alert.TripType.ONE_WAY,
+        target_price=Decimal("800.00"),
     )

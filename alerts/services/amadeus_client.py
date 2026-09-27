@@ -16,6 +16,8 @@ import httpx
 from django.conf import settings
 from django.core.cache import cache
 
+from .exceptions import FlightProviderError
+
 logger = logging.getLogger(__name__)
 
 TOKEN_CACHE_KEY = "amadeus:access_token"
@@ -24,7 +26,7 @@ MAX_RETRIES = 3
 INITIAL_BACKOFF_SECONDS = 1.0
 
 
-class AmadeusError(Exception):
+class AmadeusError(FlightProviderError):
     """Raised when the Amadeus API returns an unrecoverable error."""
 
 
@@ -33,6 +35,27 @@ class FlightOffer:
     price: float
     currency: str
     raw: dict[str, Any]
+    carrier_codes: tuple[str, ...] = ()
+    has_checked_bag: bool = False
+
+
+def _extract_carrier_codes(item: dict[str, Any]) -> tuple[str, ...]:
+    codes = set(item.get("validatingAirlineCodes", []))
+    for itinerary in item.get("itineraries", []):
+        for segment in itinerary.get("segments", []):
+            carrier = segment.get("carrierCode")
+            if carrier:
+                codes.add(carrier)
+    return tuple(sorted(codes))
+
+
+def _extract_has_checked_bag(item: dict[str, Any]) -> bool:
+    for traveler_pricing in item.get("travelerPricings", []):
+        for fare_detail in traveler_pricing.get("fareDetailsBySegment", []):
+            included = fare_detail.get("includedCheckedBags") or {}
+            if included.get("quantity", 0) > 0 or included.get("weight", 0) > 0:
+                return True
+    return False
 
 
 class AmadeusClient:
@@ -117,6 +140,7 @@ class AmadeusClient:
         adults: int = 1,
         currency: str = "BRL",
         max_results: int = 10,
+        included_airline_codes: list[str] | None = None,
     ) -> list[FlightOffer]:
         """Search flight offers for a single departure date.
 
@@ -132,6 +156,8 @@ class AmadeusClient:
         }
         if return_date:
             params["returnDate"] = return_date
+        if included_airline_codes:
+            params["includedAirlineCodes"] = ",".join(included_airline_codes)
 
         response = self._request_with_retry(
             "GET", "/v2/shopping/flight-offers", params=params
@@ -152,6 +178,8 @@ class AmadeusClient:
                     price=float(price_info["grandTotal"]),
                     currency=price_info["currency"],
                     raw=item,
+                    carrier_codes=_extract_carrier_codes(item),
+                    has_checked_bag=_extract_has_checked_bag(item),
                 )
             )
         return offers
@@ -163,6 +191,8 @@ class AmadeusClient:
         departure_date: str,
         return_date: str | None = None,
         currency: str = "BRL",
+        included_airline_codes: list[str] | None = None,
+        require_checked_bag: bool = False,
     ) -> FlightOffer | None:
         offers = self.search_flight_offers(
             origin=origin,
@@ -170,7 +200,10 @@ class AmadeusClient:
             departure_date=departure_date,
             return_date=return_date,
             currency=currency,
+            included_airline_codes=included_airline_codes,
         )
+        if require_checked_bag:
+            offers = [offer for offer in offers if offer.has_checked_bag]
         if not offers:
             return None
         return min(offers, key=lambda offer: offer.price)

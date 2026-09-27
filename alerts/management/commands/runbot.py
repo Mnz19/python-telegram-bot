@@ -4,7 +4,8 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from telegram.ext import Application, CommandHandler, ConversationHandler
 
-from alerts.bot.commands.alerts import current_price, list_alerts, stop_alert
+from alerts.bot.commands.alerts import current_price, list_alerts, resume_alert, stop_alert
+from alerts.bot.commands.profiles import duplicate_alert, list_profiles
 from alerts.bot.commands.start import start
 from alerts.bot.conversation import build_conversation_states, cancel, start_new_alert
 
@@ -34,7 +35,11 @@ class Command(BaseCommand):
         application.add_handler(conversation_handler)
         application.add_handler(CommandHandler("listaralertas", list_alerts))
         application.add_handler(CommandHandler("pararalerta", stop_alert))
+        application.add_handler(CommandHandler("pausar", stop_alert))
+        application.add_handler(CommandHandler("retomar", resume_alert))
         application.add_handler(CommandHandler("precoatual", current_price))
+        application.add_handler(CommandHandler("perfis", list_profiles))
+        application.add_handler(CommandHandler("duplicar", duplicate_alert))
 
         self.stdout.write(self.style.SUCCESS("Bot iniciado, aguardando mensagens (polling)..."))
         application.run_polling(allowed_updates=None)

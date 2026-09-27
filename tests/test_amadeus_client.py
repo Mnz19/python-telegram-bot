@@ -156,3 +156,71 @@ def test_request_refetches_token_on_401(client, monkeypatch):
 
     assert len(offers) == 1
     assert token_route.call_count == 2
+
+
+def _offer_with_bag(quantity: int) -> dict:
+    return {
+        "price": {"grandTotal": "700.00", "currency": "BRL"},
+        "id": "1",
+        "validatingAirlineCodes": ["LA"],
+        "itineraries": [{"segments": [{"carrierCode": "LA"}, {"carrierCode": "G3"}]}],
+        "travelerPricings": [
+            {"fareDetailsBySegment": [{"includedCheckedBags": {"quantity": quantity}}]}
+        ],
+    }
+
+
+@respx.mock
+def test_search_flight_offers_parses_carrier_codes_and_checked_bag(client):
+    _mock_token(respx.mock)
+    respx.mock.get(f"{BASE_URL}/v2/shopping/flight-offers").mock(
+        return_value=httpx.Response(200, json={"data": [_offer_with_bag(quantity=1)]})
+    )
+
+    offers = client.search_flight_offers("BEL", "LIS", "2026-03-01")
+
+    assert offers[0].carrier_codes == ("G3", "LA")
+    assert offers[0].has_checked_bag is True
+
+
+@respx.mock
+def test_search_flight_offers_detects_no_checked_bag(client):
+    _mock_token(respx.mock)
+    respx.mock.get(f"{BASE_URL}/v2/shopping/flight-offers").mock(
+        return_value=httpx.Response(200, json={"data": [_offer_with_bag(quantity=0)]})
+    )
+
+    offers = client.search_flight_offers("BEL", "LIS", "2026-03-01")
+
+    assert offers[0].has_checked_bag is False
+
+
+@respx.mock
+def test_find_cheapest_offer_filters_out_offers_without_checked_bag(client):
+    _mock_token(respx.mock)
+    respx.mock.get(f"{BASE_URL}/v2/shopping/flight-offers").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "data": [
+                    _offer_with_bag(quantity=0),  # cheaper (both 700 here) but no bag
+                ]
+            },
+        )
+    )
+
+    offer = client.find_cheapest_offer("BEL", "LIS", "2026-03-01", require_checked_bag=True)
+
+    assert offer is None
+
+
+@respx.mock
+def test_search_flight_offers_passes_included_airline_codes(client):
+    _mock_token(respx.mock)
+    route = respx.mock.get(f"{BASE_URL}/v2/shopping/flight-offers").mock(
+        return_value=httpx.Response(200, json={"data": []})
+    )
+
+    client.search_flight_offers("BEL", "LIS", "2026-03-01", included_airline_codes=["LA", "G3"])
+
+    assert route.calls.last.request.url.params["includedAirlineCodes"] == "LA,G3"

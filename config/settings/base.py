@@ -19,6 +19,7 @@ if env_file.exists():
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="django-insecure-dev-key-change-me")
 
 INSTALLED_APPS = [
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -87,6 +88,14 @@ CACHES = {
 # --- Telegram bot ---
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 
+# --- Flight price provider ---
+# "skyscanner" (Sky Scrapper on RapidAPI, default — free instant signup) or
+# "amadeus" (manual business review required for anything beyond sandbox).
+FLIGHT_PROVIDER = env("FLIGHT_PROVIDER", default="skyscanner")
+
+# --- Sky Scrapper (RapidAPI) ---
+RAPIDAPI_KEY = env("RAPIDAPI_KEY", default="")
+
 # --- Amadeus API ---
 AMADEUS_CLIENT_ID = env("AMADEUS_CLIENT_ID", default="")
 AMADEUS_CLIENT_SECRET = env("AMADEUS_CLIENT_SECRET", default="")
@@ -104,3 +113,49 @@ PRICE_CHECK_INTERVAL_MINUTES = env.int("PRICE_CHECK_INTERVAL_MINUTES", default=6
 
 # Default origin airport suggested to users when creating an alert.
 DEFAULT_ORIGIN_IATA = env("DEFAULT_ORIGIN_IATA", default="BEL")
+
+# --- Admin theme (django-jazzmin) ---
+JAZZMIN_SETTINGS = {
+    "site_title": "Alertas de Passagens",
+    "site_header": "Alertas de Passagens",
+    "site_brand": "✈️ Alertas de Passagens",
+    "welcome_sign": "Painel de alertas de passagens aéreas",
+    "copyright": "Alertas de Passagens",
+    "search_model": ["alerts.Alert", "alerts.TelegramUser"],
+    "order_with_respect_to": ["alerts", "alerts.Alert", "alerts.TelegramUser", "alerts.PriceHistory"],
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "alerts.TelegramUser": "fab fa-telegram",
+        "alerts.Alert": "fas fa-bell",
+        "alerts.PriceHistory": "fas fa-chart-line",
+        "django_celery_beat.PeriodicTask": "fas fa-clock",
+        "django_celery_beat.IntervalSchedule": "fas fa-hourglass-half",
+        "django_celery_beat.CrontabSchedule": "fas fa-calendar-alt",
+    },
+    "default_icon_parents": "fas fa-chevron-circle-right",
+    "default_icon_children": "fas fa-circle",
+    "show_ui_builder": False,
+    "changeform_format": "collapsible",
+    "changeform_format_overrides": {"alerts.Alert": "vertical_tabs"},
+    "related_modal_active": True,
+}
+
+JAZZMIN_UI_TWEAKS = {
+    "theme": "flatly",
+    "navbar": "navbar-dark",
+    "no_navbar_border": True,
+    "sidebar": "sidebar-dark-primary",
+    "sidebar_nav_flat_style": True,
+    "brand_colour": "navbar-primary",
+    "accent": "accent-primary",
+    "button_classes": {
+        "primary": "btn-primary",
+        "secondary": "btn-secondary",
+        "info": "btn-info",
+        "warning": "btn-warning",
+        "danger": "btn-danger",
+        "success": "btn-success",
+    },
+}
